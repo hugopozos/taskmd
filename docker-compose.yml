@@ -1,0 +1,15 @@
+services:
+  taskmd:
+    build: .
+    init: true
+    user: "${UID:-1000}:${GID:-1000}"
+    ports:
+      - "${TASKMD_BIND:-127.0.0.1}:8765:8765"
+    volumes:
+      - ./todo.md:/app/todo.md
+      - ./archive:/app/archive
+      - ./.git:/app/.git
+    environment:
+      - UID=${UID:-1000}
+      - GID=${GID:-1000}
+    restart: unless-stopped

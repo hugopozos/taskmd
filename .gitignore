@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+*.tmp
+frontend/node_modules/
+frontend/dist/
+.env
+*.egg-info/
+dist/
+.hermes/
+.venv/
+docker-compose.override.yml
