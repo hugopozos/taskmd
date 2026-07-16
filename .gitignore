@@ -9,3 +9,4 @@ dist/
 .hermes/
 .venv/
 docker-compose.override.yml
+.hermes.md

@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
+import { DndContext, DragOverlay, useDraggable, useDroppable } from '@dnd-kit/core'
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import type { ColumnMap, Task, TaskCreate, TaskUpdate } from './types'
 
 const API = ''
@@ -13,14 +15,47 @@ interface Toast {
 
 let toastId = 0
 
+/* ── Icon components ── */
+
+function TrashIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className || 'w-4 h-4'}
+    >
+      <path
+        fillRule="evenodd"
+        d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c-.84 0-1.673.025-2.5.075V3.75c0-.69.56-1.25 1.25-1.25h2.5c.69 0 1.25.56 1.25 1.25v.325C11.673 4.025 10.84 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
+        clipRule="evenodd"
+      />
+    </svg>
+  )
+}
+
+function PencilIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className || 'w-4 h-4'}
+    >
+      <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
+    </svg>
+  )
+}
+
 /* ── Component ── */
 
 export default function App() {
   const [columns, setColumns] = useState<ColumnMap>({})
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
+  const [editTask, setEditTask] = useState<Task | null>(null)
   const [toasts, setToasts] = useState<Toast[]>([])
-  const [moveTaskId, setMoveTaskId] = useState<string | null>(null)
+  const [activeTask, setActiveTask] = useState<Task | null>(null)
 
   const toast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     const id = ++toastId
@@ -104,6 +139,32 @@ export default function App() {
     }
   }
 
+  /* ── Drag handlers ── */
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    for (const tasks of Object.values(columns)) {
+      const t = tasks.find(t => t.id === event.active.id)
+      if (t) { setActiveTask(t); break }
+    }
+  }, [columns])
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    setActiveTask(null)
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const taskId = active.id as string
+    const targetColumn = over.id as string
+
+    for (const [colName, tasks] of Object.entries(columns)) {
+      if (tasks.some(t => t.id === taskId) && colName !== targetColumn) {
+        handleUpdate(taskId, { column: targetColumn })
+        break
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columns])
+
   /* ── Get aging badge style ── */
 
   const agingBadge = (days: number) => {
@@ -152,23 +213,30 @@ export default function App() {
         </button>
       </header>
 
-      {/* Board */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {orderedColumns.map(colName => (
-          <Column
-            key={colName}
-            name={colName}
-            tasks={columns[colName] || []}
-            onMove={(taskId, target) => handleUpdate(taskId, { column: target })}
-            onComplete={taskId => handleUpdate(taskId, { column: 'Done' })}
-            onDelete={handleDelete}
-            onUpdate={(taskId, update) => handleUpdate(taskId, update)}
-            agingBadge={agingBadge}
-            moveTaskId={moveTaskId}
-            setMoveTaskId={setMoveTaskId}
-          />
-        ))}
-      </div>
+      {/* DnD Board */}
+      <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {orderedColumns.map(colName => (
+            <Column
+              key={colName}
+              name={colName}
+              tasks={columns[colName] || []}
+              onComplete={taskId => handleUpdate(taskId, { column: 'Done' })}
+              onDelete={handleDelete}
+              onUpdate={(taskId, update) => handleUpdate(taskId, update)}
+              onEdit={(task) => setEditTask(task)}
+              agingBadge={agingBadge}
+            />
+          ))}
+        </div>
+        <DragOverlay dropAnimation={null}>
+          {activeTask ? (
+            <div className="bg-zinc-900/90 rounded-lg border border-zinc-600 px-3 py-2.5 shadow-2xl rotate-2 opacity-90 max-w-[250px]">
+              <p className="text-sm text-zinc-200">{activeTask.title}</p>
+            </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
       {/* Empty state */}
       {orderedColumns.length === 0 && (
@@ -184,6 +252,18 @@ export default function App() {
           columns={orderedColumns}
           onSave={handleCreate}
           onClose={() => setShowAdd(false)}
+        />
+      )}
+
+      {/* Edit task dialog */}
+      {editTask && (
+        <EditTaskDialog
+          task={editTask}
+          onSave={(title, note) => {
+            handleUpdate(editTask.id, { title, note })
+            setEditTask(null)
+          }}
+          onClose={() => setEditTask(null)}
         />
       )}
 
@@ -211,25 +291,35 @@ export default function App() {
    ═══════════════════════════════════════════ */
 
 function Column({
-  name, tasks, onMove, onComplete, onDelete, onUpdate, agingBadge,
-  moveTaskId, setMoveTaskId,
+  name, tasks, onComplete, onDelete, onUpdate, onEdit, agingBadge,
 }: {
   name: string
   tasks: Task[]
-  onMove: (id: string, col: string) => void
   onComplete: (id: string) => void
   onDelete: (id: string) => void
   onUpdate: (id: string, u: TaskUpdate) => void
-  agingBadge: (days: number) => JSX.Element | null
-  moveTaskId: string | null
-  setMoveTaskId: (id: string | null) => void
+  onEdit: (task: Task) => void
+  agingBadge: (days: number) => React.ReactNode
 }) {
   const isToday = name === 'Today'
   const isDone = name === 'Done'
-  const otherColumns = ['Backlog', 'Week', 'Today', 'Done'].filter(c => c !== name && (c !== 'Done' || isDone))
+
+  // Droppable wrap — the Drop event uses column name as droppable id
+  function DroppableColumn({ name, children, className: cn, ...rest }: { name: string; children: React.ReactNode; className?: string; [key: string]: any }) {
+    const { setNodeRef, isOver } = useDroppable({ id: name })
+    return (
+      <div
+        ref={setNodeRef}
+        className={`bg-surface rounded-xl border ${isOver ? 'border-cyan-500/50 bg-cyan-950/20' : 'border-border'} p-3 min-h-[12rem] flex flex-col transition-colors ${cn || ''}`}
+        {...rest}
+      >
+        {children}
+      </div>
+    )
+  }
 
   return (
-    <div className="bg-surface rounded-xl border border-border p-3 min-h-[12rem] flex flex-col">
+    <DroppableColumn name={name}>
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider">{name}</h2>
         <span className="text-xs text-zinc-600 tabular-nums">{tasks.length}</span>
@@ -240,16 +330,14 @@ function Column({
           <TaskCard
             key={task.id}
             task={task}
+            name={name}
             isToday={isToday}
             isDone={isDone}
             onComplete={() => onComplete(task.id)}
             onDelete={() => onDelete(task.id)}
-            onMove={(col) => onMove(task.id, col)}
             onTitleEdit={(title) => onUpdate(task.id, { title })}
+            onEdit={() => onEdit(task)}
             agingBadge={agingBadge}
-            otherColumns={otherColumns}
-            isMoving={moveTaskId === task.id}
-            setMoving={() => setMoveTaskId(moveTaskId === task.id ? null : task.id)}
           />
         ))}
 
@@ -259,32 +347,51 @@ function Column({
           </div>
         )}
       </div>
+    </DroppableColumn>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════
+   DroppableColumn — DnD droppable zone wrapper
+   ═══════════════════════════════════════════════════════ */
+
+function DroppableColumn({ name, children, className: cn, ...rest }: { name: string; children: React.ReactNode; className?: string; [key: string]: any }) {
+  const { setNodeRef, isOver } = useDroppable({ id: name })
+  return (
+    <div
+      ref={setNodeRef}
+      className={`bg-surface rounded-xl border ${isOver ? 'border-cyan-500/50 bg-cyan-950/20' : 'border-border'} p-3 min-h-[12rem] flex flex-col transition-colors ${cn || ''}`}
+      {...rest}
+    >
+      {children}
     </div>
   )
 }
 
-/* ═══════════════════════════════════════════
+/* ═══════════════════════════════════════════════════════
    Task Card Component
-   ═══════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════ */
 
 function TaskCard({
-  task, isToday, isDone, onComplete, onDelete, onMove, onTitleEdit,
-  agingBadge, otherColumns, isMoving, setMoving,
+  task, name, isToday, isDone, onComplete, onDelete, onTitleEdit, onEdit, agingBadge,
 }: {
   task: Task
+  name: string
   isToday: boolean
   isDone: boolean
   onComplete: () => void
   onDelete: () => void
-  onMove: (col: string) => void
   onTitleEdit: (title: string) => void
-  agingBadge: (days: number) => JSX.Element | null
-  otherColumns: string[]
-  isMoving: boolean
-  setMoving: () => void
+  onEdit: () => void
+  agingBadge: (days: number) => React.ReactNode
 }) {
   const [editing, setEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(task.title)
+
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: task.id,
+    data: { name },
+  })
 
   const handleSaveTitle = () => {
     if (editTitle.trim() && editTitle !== task.title) {
@@ -300,7 +407,13 @@ function TaskCard({
   )
 
   return (
-    <div className="group relative bg-zinc-900/50 rounded-lg border border-zinc-800 px-3 py-2.5 hover:border-zinc-700 transition-colors">
+    <div
+      ref={setNodeRef}
+      style={transform ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` } : undefined}
+      className={`group relative bg-zinc-900/50 rounded-lg border border-zinc-800 px-3 py-2.5 hover:border-zinc-700 transition-colors ${isDragging ? 'opacity-30' : ''} cursor-grab active:cursor-grabbing`}
+      {...listeners}
+      {...attributes}
+    >
       {/* Header row */}
       <div className="flex items-start gap-2">
         {/* State */}
@@ -308,7 +421,7 @@ function TaskCard({
           {stateIndicator}
         </button>
 
-        {/* Title */}
+        {/* Title + note */}
         <div className="flex-1 min-w-0">
           {editing ? (
             <input
@@ -339,6 +452,11 @@ function TaskCard({
               ))}
             </div>
           )}
+
+          {/* Note preview */}
+          {task.meta?.note && (
+            <p className="text-[11px] text-zinc-500 mt-1 line-clamp-2">{task.meta.note}</p>
+          )}
         </div>
 
         {/* Aging badge */}
@@ -347,37 +465,19 @@ function TaskCard({
 
       {/* Actions bar */}
       <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        {/* Move selector */}
-        <div className="relative">
-          <button
-            onClick={setMoving}
-            className="text-[11px] text-zinc-500 hover:text-zinc-300 px-1.5 py-0.5 rounded hover:bg-zinc-800 transition-colors"
-          >
-            Move
-          </button>
-          {isMoving && (
-            <div className="absolute top-full left-0 mt-1 z-10 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl py-1 min-w-[8rem]">
-              {otherColumns.map(col => (
-                <button
-                  key={col}
-                  onClick={() => { onMove(col); setMoving() }}
-                  className="block w-full text-left px-3 py-1.5 text-xs text-zinc-300 hover:bg-zinc-800 transition-colors"
-                >
-                  {col === 'Done' ? 'Complete' : `→ ${col}`}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <span className="text-zinc-700 text-[10px]">|</span>
-
-        {/* Delete */}
+        <button
+          onClick={onEdit}
+          className="text-zinc-500 hover:text-zinc-300 p-1 rounded hover:bg-zinc-800 transition-colors"
+          title="Edit task"
+        >
+          <PencilIcon className="w-4 h-4" />
+        </button>
         <button
           onClick={() => { if (confirm('Delete task?')) onDelete() }}
-          className="text-[11px] text-zinc-500 hover:text-red-400 px-1.5 py-0.5 rounded hover:bg-zinc-800 transition-colors"
+          className="text-zinc-500 hover:text-red-400 p-1 rounded hover:bg-zinc-800 transition-colors"
+          title="Delete task"
         >
-          Delete
+          <TrashIcon className="w-4 h-4" />
         </button>
       </div>
     </div>
@@ -421,7 +521,6 @@ function AddTaskDialog({
             onChange={e => setTitle(e.target.value)}
             className="w-full bg-zinc-800 text-sm text-zinc-200 px-3 py-2 rounded-lg border border-zinc-700 placeholder-zinc-500 outline-none focus:border-zinc-500 transition-colors"
           />
-
           <select
             value={column}
             onChange={e => setColumn(e.target.value)}
@@ -429,14 +528,12 @@ function AddTaskDialog({
           >
             {columns.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-
           <input
             placeholder="Tags (e.g. #server #hogar)"
             value={tags}
             onChange={e => setTags(e.target.value)}
             className="w-full bg-zinc-800 text-sm text-zinc-200 px-3 py-2 rounded-lg border border-zinc-700 placeholder-zinc-500 outline-none focus:border-zinc-500 transition-colors"
           />
-
           <textarea
             placeholder="Note (optional)"
             value={note}
@@ -444,7 +541,6 @@ function AddTaskDialog({
             rows={2}
             className="w-full bg-zinc-800 text-sm text-zinc-200 px-3 py-2 rounded-lg border border-zinc-700 placeholder-zinc-500 outline-none focus:border-zinc-500 transition-colors resize-none"
           />
-
           <div className="flex justify-end gap-2 pt-1">
             <button
               type="button"
@@ -459,6 +555,70 @@ function AddTaskDialog({
               className="px-4 py-1.5 text-sm font-medium rounded-lg bg-zinc-200 text-zinc-900 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Create
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════
+   Edit Task Dialog
+   ═══════════════════════════════════════════ */
+
+function EditTaskDialog({
+  task, onSave, onClose,
+}: {
+  task: Task
+  onSave: (title: string, note: string) => void
+  onClose: () => void
+}) {
+  const [title, setTitle] = useState(task.title)
+  const [note, setNote] = useState(task.meta?.note || '')
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!title.trim()) return
+    onSave(title.trim(), note.trim())
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60" onClick={onClose}>
+      <div
+        className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 w-full max-w-md mx-4 shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <h2 className="text-sm font-medium text-zinc-200 mb-4">Edit task</h2>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input
+            autoFocus
+            placeholder="Title"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            className="w-full bg-zinc-800 text-sm text-zinc-200 px-3 py-2 rounded-lg border border-zinc-700 placeholder-zinc-500 outline-none focus:border-zinc-500 transition-colors"
+          />
+          <textarea
+            placeholder="Description (optional)"
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            rows={4}
+            className="w-full bg-zinc-800 text-sm text-zinc-200 px-3 py-2 rounded-lg border border-zinc-700 placeholder-zinc-500 outline-none focus:border-zinc-500 transition-colors resize-none"
+          />
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!title.trim()}
+              className="px-4 py-1.5 text-sm font-medium rounded-lg bg-zinc-200 text-zinc-900 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Save
             </button>
           </div>
         </form>
