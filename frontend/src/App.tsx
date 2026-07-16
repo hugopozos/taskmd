@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { DndContext, DragOverlay, useDraggable, useDroppable } from '@dnd-kit/core'
+import { DndContext, DragOverlay, useDraggable, useDroppable, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import type { ColumnMap, Task, TaskCreate, TaskUpdate } from './types'
 
@@ -141,6 +141,12 @@ export default function App() {
 
   /* ── Drag handlers ── */
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    })
+  )
+
   const handleDragStart = useCallback((event: DragStartEvent) => {
     for (const tasks of Object.values(columns)) {
       const t = tasks.find(t => t.id === event.active.id)
@@ -214,7 +220,11 @@ export default function App() {
       </header>
 
       {/* DnD Board */}
-      <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <DndContext
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        sensors={sensors}
+      >
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {orderedColumns.map(colName => (
             <Column

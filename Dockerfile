@@ -15,7 +15,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /
     pip install --no-cache-dir -r requirements.txt
 
 COPY server.py .
-COPY todo.md .
 COPY SPEC.md .
 COPY --from=build /app/dist /app/frontend/dist
 

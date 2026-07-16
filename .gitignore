@@ -10,3 +10,4 @@ dist/
 .venv/
 docker-compose.override.yml
 .hermes.md
+todo.md
