@@ -207,10 +207,10 @@ export default function App() {
   /* ── Render ── */
 
   return (
-    <div className="min-h-screen p-4 md:p-6 max-w-7xl mx-auto">
+    <div className="h-screen flex flex-col max-w-7xl mx-auto p-4 md:p-6">
       {/* Header */}
-      <header className="flex items-center justify-between mb-6">
-        <h1 className="text-lg font-semibold text-zinc-100 tracking-tight">Todo</h1>
+      <header className="flex items-center justify-between mb-6 shrink-0">
+        <h1 className="text-lg font-semibold text-zinc-100 tracking-tight">taskmd</h1>
         <button
           onClick={() => setShowAdd(true)}
           className="px-3 py-1.5 text-sm font-medium rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 transition-colors"
@@ -225,7 +225,7 @@ export default function App() {
         onDragEnd={handleDragEnd}
         sensors={sensors}
       >
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="flex-1 min-h-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {orderedColumns.map(colName => (
             <Column
               key={colName}
@@ -320,7 +320,7 @@ function Column({
     return (
       <div
         ref={setNodeRef}
-        className={`bg-surface rounded-xl border ${isOver ? 'border-cyan-500/50 bg-cyan-950/20' : 'border-border'} p-3 min-h-[12rem] flex flex-col transition-colors ${cn || ''}`}
+        className={`bg-surface rounded-xl border ${isOver ? 'border-cyan-500/50 bg-cyan-950/20' : 'border-border'} p-3 min-h-[12rem] h-full flex flex-col transition-colors ${cn || ''}`}
         {...rest}
       >
         {children}
@@ -335,7 +335,7 @@ function Column({
         <span className="text-xs text-zinc-600 tabular-nums">{tasks.length}</span>
       </div>
 
-      <div className="flex-1 space-y-2">
+      <div className="flex-1 space-y-2 overflow-y-auto min-h-0">
         {tasks.map(task => (
           <TaskCard
             key={task.id}
@@ -370,7 +370,7 @@ function DroppableColumn({ name, children, className: cn, ...rest }: { name: str
   return (
     <div
       ref={setNodeRef}
-      className={`bg-surface rounded-xl border ${isOver ? 'border-cyan-500/50 bg-cyan-950/20' : 'border-border'} p-3 min-h-[12rem] flex flex-col transition-colors ${cn || ''}`}
+      className={`bg-surface rounded-xl border ${isOver ? 'border-cyan-500/50 bg-cyan-950/20' : 'border-border'} p-3 min-h-[12rem] h-full flex flex-col transition-colors ${cn || ''}`}
       {...rest}
     >
       {children}
@@ -517,11 +517,8 @@ function AddTaskDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div
-        className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 w-full max-w-md mx-4 shadow-2xl"
-        onClick={e => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60">
+      <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 w-full max-w-md mx-4 shadow-2xl">
         <h2 className="text-sm font-medium text-zinc-200 mb-4">New task</h2>
         <form onSubmit={handleSubmit} className="space-y-3">
           <input
@@ -574,6 +571,41 @@ function AddTaskDialog({
 }
 
 /* ═══════════════════════════════════════════
+   Markdown Toolbar
+   ═══════════════════════════════════════════ */
+
+function MarkdownToolbar({ onInsert }: { onInsert: (syntax: string, placeholder: string) => void }) {
+  const tools = [
+    { label: 'B', title: 'Bold', syntax: '**$1**', placeholder: 'bold' },
+    { label: 'I', title: 'Italic', syntax: '*$1*', placeholder: 'italic' },
+    { label: '~~', title: 'Strikethrough', syntax: '~~$1~~', placeholder: 'strike' },
+    { label: '#', title: 'Heading 3', syntax: '### $1', placeholder: 'heading' },
+    { label: '•', title: 'Bullet list', syntax: '\n- $1', placeholder: 'item' },
+    { label: '1.', title: 'Numbered list', syntax: '\n1. $1', placeholder: 'item' },
+    { label: '[]', title: 'Checkbox', syntax: '\n- [ ] $1', placeholder: 'todo' },
+    { label: '🔗', title: 'Link', syntax: '[$1](url)', placeholder: 'link text' },
+    { label: '`', title: 'Inline code', syntax: '`$1`', placeholder: 'code' },
+    { label: '```', title: 'Code block', syntax: '\n```\n$1\n```\n', placeholder: 'code' },
+  ]
+
+  return (
+    <div className="flex items-center gap-0.5 mb-2 flex-wrap">
+      {tools.map(t => (
+        <button
+          key={t.label}
+          type="button"
+          title={t.title}
+          onClick={() => onInsert(t.syntax, t.placeholder)}
+          className="px-1.5 py-0.5 text-xs font-medium text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════
    Edit Task Dialog
    ═══════════════════════════════════════════ */
 
@@ -594,13 +626,10 @@ function EditTaskDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div
-        className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 w-full max-w-md mx-4 shadow-2xl"
-        onClick={e => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60">
+      <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-2xl mx-4 shadow-2xl min-h-[420px] flex flex-col">
         <h2 className="text-sm font-medium text-zinc-200 mb-4">Edit task</h2>
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-3 flex-1 flex flex-col">
           <input
             autoFocus
             placeholder="Title"
@@ -608,13 +637,31 @@ function EditTaskDialog({
             onChange={e => setTitle(e.target.value)}
             className="w-full bg-zinc-800 text-sm text-zinc-200 px-3 py-2 rounded-lg border border-zinc-700 placeholder-zinc-500 outline-none focus:border-zinc-500 transition-colors"
           />
-          <textarea
-            placeholder="Description (optional)"
-            value={note}
-            onChange={e => setNote(e.target.value)}
-            rows={4}
-            className="w-full bg-zinc-800 text-sm text-zinc-200 px-3 py-2 rounded-lg border border-zinc-700 placeholder-zinc-500 outline-none focus:border-zinc-500 transition-colors resize-none"
-          />
+          <div className="flex-1 flex flex-col">
+            <MarkdownToolbar onInsert={(syntax, placeholder) => {
+              const ta = document.getElementById('edit-note-textarea') as HTMLTextAreaElement
+              if (!ta) return
+              const start = ta.selectionStart, end = ta.selectionEnd
+              const before = note.slice(0, start)
+              const sel = note.slice(start, end) || placeholder
+              const after = note.slice(end)
+              const newText = before + syntax.replace('$1', sel) + after
+              setNote(newText)
+              requestAnimationFrame(() => {
+                const cursor = start + syntax.indexOf('$1')
+                ta.setSelectionRange(cursor, cursor + sel.length)
+                ta.focus()
+              })
+            }} />
+            <textarea
+              id="edit-note-textarea"
+              placeholder="Description (markdown)"
+              value={note}
+              onChange={e => setNote(e.target.value)}
+              rows={10}
+              className="flex-1 w-full bg-zinc-800 text-sm text-zinc-200 px-3 py-2 rounded-lg border border-zinc-700 placeholder-zinc-500 outline-none focus:border-zinc-500 transition-colors resize-none font-mono"
+            />
+          </div>
           <div className="flex justify-end gap-2 pt-1">
             <button
               type="button"
