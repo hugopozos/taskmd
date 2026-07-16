@@ -9,6 +9,7 @@ services:
       - ./todo.md:/app/todo.md
       - ./archive:/app/archive
       - ./.git:/app/.git
+      - ./server.py:/app/server.py:ro
     environment:
       - UID=${UID:-1000}
       - GID=${GID:-1000}
