@@ -89,6 +89,7 @@ def parse_todo(content: str) -> dict[str, list[dict]]:
     """Parse todo.md into {column_name: [task, …], …}."""
     columns: dict[str, list[dict]] = {}
     column = None
+    last_meta_key: Optional[str] = None
 
     for line in content.split("\n"):
         stripped = line.lstrip()
@@ -98,6 +99,7 @@ def parse_todo(content: str) -> dict[str, list[dict]]:
         if indent == 0 and line.startswith("## "):
             column = stripped[3:].strip()
             columns.setdefault(column, [])
+            last_meta_key = None
             continue
 
         # ── New task ──
@@ -105,11 +107,19 @@ def parse_todo(content: str) -> dict[str, list[dict]]:
             task = _parse_task_line(line)
             if task:
                 columns[column].append(task)
+            last_meta_key = None
             continue
 
         # ── Metadata of the *last* task in the current column ──
         if indent >= 2 and column and columns[column]:
-            _add_metadata(columns[column][-1], stripped)
+            key, val = _parse_meta_line(stripped)
+            if key is not None:
+                columns[column][-1]["meta"][key] = val
+                last_meta_key = key
+            elif last_meta_key is not None:
+                # Continuation of previous metadata value (multiline)
+                prev = columns[column][-1]["meta"][last_meta_key]
+                columns[column][-1]["meta"][last_meta_key] = prev + "\n" + stripped
 
     return columns
 
@@ -151,11 +161,14 @@ def _parse_task_line(line: str) -> Optional[dict]:
     }
 
 
-def _add_metadata(task: dict, line: str) -> None:
+def _parse_meta_line(line: str) -> tuple[Optional[str], Optional[str]]:
     idx = line.find(":")
     if idx > 0:
-        key, val = line[:idx].strip(), line[idx+1:].strip()
-        task["meta"][key] = val
+        key = line[:idx].strip()
+        # Simple heuristic: metadata keys are single words without spaces
+        if " " not in key:
+            return key, line[idx + 1 :].strip()
+    return None, None
 
 
 # ═══════════════════════════════════════════════
@@ -214,7 +227,13 @@ def build_markdown(columns: dict) -> str:
             id_str = f" `#{t['id']}`" if t.get("id") else ""
             lines.append(f"- [{t['state']}] {tags_str}{t['title']}{id_str}")
             for k, v in t.get("meta", {}).items():
-                lines.append(f"  {k}: {v}")
+                if "\n" in v:
+                    first, *rest = v.split("\n")
+                    lines.append(f"  {k}: {first}")
+                    for continuation in rest:
+                        lines.append(f"    {continuation}")
+                else:
+                    lines.append(f"  {k}: {v}")
         lines.append("")
     return "\n".join(lines)
 
