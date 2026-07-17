@@ -28,7 +28,7 @@ docker compose up -d
 
 # Or run directly
 pip install -r requirements.txt
-uvicorn server:app --host 127.0.0.1 --port 8765
+uvicorn server.main:app --host 127.0.0.1 --port 8765 --reload
 ```
 
 Open **http://localhost:8765** in your browser. Edit `todo.md` with any text editor
@@ -101,14 +101,30 @@ archive/
 
 ```
 taskmd/
-├── todo.md             ← the one file that matters
-├── server.py           ← Python backend
-├── SPEC.md             ← format specification
-├── HERMES.md           ← Hermes Agent integration guide
+├── todo.md                    ← the one file that matters
+├── server.py                  ← Entry point (delegates to server/)
+├── server/                    ← Python backend package
+│   ├── main.py                ← FastAPI app factory, lifecycle
+│   ├── api/
+│   │   └── router.py          ← REST endpoints (thin, delegates to domain)
+│   ├── domain/
+│   │   ├── models.py          ← Domain data classes (Task, TaskBoard)
+│   │   ├── schemas.py         ← Pydantic request/response schemas
+│   │   └── task_service.py    ← Business logic (aging, IDs, validation)
+│   └── infrastructure/
+│       ├── file_repository.py ← Atomic file I/O (todo.md persistence)
+│       ├── git_service.py     ← Git auto-commit & crash recovery
+│       ├── markdown_parser.py ← todo.md → TaskBoard
+│       └── markdown_writer.py ← TaskBoard → todo.md
+├── tests/
+│   ├── test_domain_models.py
+│   ├── test_markdown_roundtrip.py
+│   ├── test_id_generation.py
+│   └── test_task_service.py
 ├── frontend/
-│   ├── src/App.tsx     ← 4-column board + aging badge
-│   └── src/types.ts    ← TypeScript interfaces
-├── archive/            ← historical tasks (auto-archived)
+│   ├── src/App.tsx            ← 4-column board + aging badge
+│   └── src/types.ts           ← TypeScript interfaces
+├── archive/                   ← historical tasks (auto-archived)
 ├── Dockerfile
 ├── docker-compose.yml
 └── README.md

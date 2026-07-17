@@ -1,13 +1,28 @@
+# Python
 __pycache__/
 *.py[cod]
+*.egg-info/
+.venv/
+.mypy_cache/
+.ruff_cache/
+
+# Temp files
 *.tmp
+*.md.tmp
+
+# Frontend
 frontend/node_modules/
 frontend/dist/
+
+# Environment
 .env
-*.egg-info/
-dist/
-.hermes/
-.venv/
 docker-compose.override.yml
+
+# IDE
+.hermes/
 .hermes.md
+.idea/
+.vscode/
+
+# User data
 todo.md

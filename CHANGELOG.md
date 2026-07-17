@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.2.0] — 2026-07-16
+
+### Changed
+
+- **Modular architecture**: monolithic `server.py` split into 3 layers
+  (API, domain, infrastructure) with clear responsibilities.
+- Domain layer uses `dataclasses` instead of raw `dicts` for strict typing.
+- `atomic_write` now uses `tmp + os.replace` with Docker fallback.
+- `Dockerfile` and `docker-compose.yml` mount `server/` as a volume.
+
+### Added
+
+- **Tests**: 50 unit tests + integration test suite (pytest).
+- **Dev config**: `pyproject.toml` with ruff and pytest settings.
+- `GitService` class instead of loose helper functions.
+### Removed
+
+- Unused `aiofiles` dependency.
+- Local cache dirs (`.mypy_cache/`, `.ruff_cache/`) from repo tracking.
+
 ## [0.1.0] — 2026-07-15
 
 ### Added
@@ -14,3 +34,4 @@
 - Crash recovery on server restart
 - Dynamic columns — any `## Header` in todo.md becomes a column
 - Hermione Agent integration guide (HERMES.md)
+

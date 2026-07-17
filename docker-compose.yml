@@ -10,6 +10,7 @@ services:
       - ./archive:/app/archive
       - ./.git:/app/.git
       - ./server.py:/app/server.py:ro
+      - ./server/:/app/server/:ro
     environment:
       - UID=${UID:-1000}
       - GID=${GID:-1000}
